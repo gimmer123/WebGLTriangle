@@ -2,6 +2,8 @@ var gl =
   document.getElementById("glCanvas").getContext("webgl") ||
   document.getElementById("glCanvas").getContext("experimental-webgl");
 
+var vertices = [];
+
 function InitWebGL() {
   if (!gl) {
     alert("WebGL is not supported");
@@ -96,11 +98,33 @@ function ValidateShaderProgram(program) {
   return true;
 }
 
+function CreateGeometryUI() {
+  const widthElement = document.getElementById("width");
+  const width = widthElement ? widthElement.value : 1.0;
+  const heightElement = document.getElementById("height");
+  const height = heightElement ? heightElement.value : 1.0;
+
+  document.getElementById("ui").innerHTML =
+    'Width: <input type="number" id="width" value="' +
+    width +
+    '" onchange="InitShaders();"><br>' +
+    'Height: <input type="number" id="height" value"' +
+    height +
+    '" onchange="InitShaders();">';
+
+  let selection = document.getElementById("shape");
+  switch (selection.selectedIndex) {
+    case 0:
+      CreateTriangle(width, height);
+      break;
+    case 1:
+      CreateQuad(width, height);
+      break;
+  }
+}
+
 function CreateGeometryBuffers(program) {
-  const vertices = [
-    0.0, 0.5, 0.0, 1.0, 0.0, 0.0, -0.5, -0.5, 0.0, 0.0, 1.0, 0.0, 0.5, -0.5,
-    0.0, 0.0, 0.0, 1.0,
-  ];
+  CreateGeometryUI();
 
   CreateVBO(program, new Float32Array(vertices));
 
@@ -128,5 +152,166 @@ function CreateVBO(program, vertices) {
 function Render() {
   gl.clearColor(0.0, 0.4, 0.6, 1.0);
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-  gl.drawArrays(gl.TRIANGLES, 0, 3);
+  gl.drawArrays(gl.TRIANGLES, 0, vertices.length / 6);
+}
+
+function AddVertex(x, y, z, r, g, b) {
+  const index = vertices.length;
+  vertices.length += 6;
+  vertices[index + 0] = x;
+  vertices[index + 1] = y;
+  vertices[index + 2] = z;
+  vertices[index + 3] = r;
+  vertices[index + 4] = g;
+  vertices[index + 5] = b;
+}
+
+function AddTriangle(
+  x1,
+  y1,
+  z1,
+  r1,
+  g1,
+  b1,
+  x2,
+  y2,
+  z2,
+  r2,
+  g2,
+  b2,
+  x3,
+  y3,
+  z3,
+  r3,
+  g3,
+  b3,
+) {
+  AddVertex(x1, y1, z1, r1, g1, b1);
+  AddVertex(x2, y2, z2, r2, g2, b2);
+  AddVertex(x3, y3, z3, r3, g3, b3);
+}
+
+function AddQuad(
+  x1,
+  y1,
+  z1,
+  r1,
+  g1,
+  b1,
+  x2,
+  y2,
+  z2,
+  r2,
+  g2,
+  b2,
+  x3,
+  y3,
+  z3,
+  r3,
+  g3,
+  b3,
+  x4,
+  y4,
+  z4,
+  r4,
+  g4,
+  b4,
+) {
+  AddTriangle(
+    x1,
+    y1,
+    z1,
+    r1,
+    g1,
+    b1,
+    x2,
+    y2,
+    z2,
+    r2,
+    g2,
+    b2,
+    x3,
+    y3,
+    z3,
+    r3,
+    g3,
+    b3,
+  );
+  AddTriangle(
+    x3,
+    y3,
+    z3,
+    r3,
+    g3,
+    b3,
+    x4,
+    y4,
+    z4,
+    r4,
+    g4,
+    b4,
+    x1,
+    y1,
+    z1,
+    r1,
+    g1,
+    b1,
+  );
+}
+
+function CreateTriangle(width, height) {
+  vertices.length = 0;
+  const w = width * 0.5;
+  const h = height * 0.5;
+  AddTriangle(
+    0.0,
+    h,
+    0.0,
+    1.0,
+    0.0,
+    0.0,
+    -w,
+    -h,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    w,
+    -h,
+    0.0,
+    0.0,
+    0.0,
+  );
+}
+
+function CreateQuad(width, height) {
+  vertices.length = 0;
+  const w = width * 0.5;
+  const h = height * 0.5;
+  AddQuad(
+    -w,
+    h,
+    0.0,
+    1.0,
+    0.0,
+    0.0,
+    -w,
+    -h,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    w,
+    -h,
+    0.0,
+    0.0,
+    0.0,
+    1.0,
+    w,
+    h,
+    0.0,
+    1.0,
+    1.0,
+    0.0,
+  );
 }

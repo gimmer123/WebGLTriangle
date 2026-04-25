@@ -1,8 +1,24 @@
+/** @type {WebGL2RenderingContext} */
 var gl =
   document.getElementById("glCanvas").getContext("webgl") ||
   document.getElementById("glCanvas").getContext("experimental-webgl");
 
 var vertices = [];
+var mouseX = 0,
+  mouseY = 0;
+var angle = [0.0, 0.0, 0.0, 1.0];
+var angleGL = 0;
+
+document.getElementById("glCanvas").addEventListener("mousemove", function (e) {
+  if (e.buttons == 1) {
+    angle[0] -= (mouseY - e.y) * 0.1;
+    angle[1] += (mouseX - e.x) * 0.1;
+    gl.uniform4fv(angleGL, new Float32Array(angle));
+    Render();
+  }
+  mouseX = e.x;
+  mouseY = e.y;
+});
 
 function InitWebGL() {
   if (!gl) {
@@ -10,10 +26,7 @@ function InitWebGL() {
     return;
   }
   let canvas = document.getElementById("glCanvas");
-  if (
-    canvas.width != canvas.clientWidth ||
-    canvas.height != canvas.clientHeight
-  ) {
+  if (canvas.width != canvas.clientWidth || canvas.height != canvas.clientHeight) {
     canvas.width = canvas.clientWidth;
     canvas.height = canvas.clientHeight;
   }
@@ -103,13 +116,18 @@ function CreateGeometryUI() {
   const width = widthElement ? widthElement.value : 1.0;
   const heightElement = document.getElementById("height");
   const height = heightElement ? heightElement.value : 1.0;
+  const depthElement = document.getElementById("depth");
+  const depth = depthElement ? depthElement.value : 1.0;
 
   document.getElementById("ui").innerHTML =
     'Width: <input type="number" id="width" value="' +
     width +
     '" onchange="InitShaders();"><br>' +
-    'Height: <input type="number" id="height" value"' +
+    'Height: <input type="number" id="height" value="' +
     height +
+    '" onchange="InitShaders();"><br>' +
+    'Depth: <input type="number" id="depth" value="' +
+    depth +
     '" onchange="InitShaders();">';
 
   let selection = document.getElementById("shape");
@@ -120,6 +138,8 @@ function CreateGeometryUI() {
     case 1:
       CreateQuad(width, height);
       break;
+    case 2:
+      CreateBox(width, height, depth);
   }
 }
 
@@ -127,6 +147,8 @@ function CreateGeometryBuffers(program) {
   CreateGeometryUI();
 
   CreateVBO(program, new Float32Array(vertices));
+
+  angleGL = gl.getUniformLocation(program, "Angle");
 
   gl.useProgram(program);
 
@@ -166,152 +188,41 @@ function AddVertex(x, y, z, r, g, b) {
   vertices[index + 5] = b;
 }
 
-function AddTriangle(
-  x1,
-  y1,
-  z1,
-  r1,
-  g1,
-  b1,
-  x2,
-  y2,
-  z2,
-  r2,
-  g2,
-  b2,
-  x3,
-  y3,
-  z3,
-  r3,
-  g3,
-  b3,
-) {
+function AddTriangle(x1, y1, z1, r1, g1, b1, x2, y2, z2, r2, g2, b2, x3, y3, z3, r3, g3, b3) {
   AddVertex(x1, y1, z1, r1, g1, b1);
   AddVertex(x2, y2, z2, r2, g2, b2);
   AddVertex(x3, y3, z3, r3, g3, b3);
 }
 
-function AddQuad(
-  x1,
-  y1,
-  z1,
-  r1,
-  g1,
-  b1,
-  x2,
-  y2,
-  z2,
-  r2,
-  g2,
-  b2,
-  x3,
-  y3,
-  z3,
-  r3,
-  g3,
-  b3,
-  x4,
-  y4,
-  z4,
-  r4,
-  g4,
-  b4,
-) {
-  AddTriangle(
-    x1,
-    y1,
-    z1,
-    r1,
-    g1,
-    b1,
-    x2,
-    y2,
-    z2,
-    r2,
-    g2,
-    b2,
-    x3,
-    y3,
-    z3,
-    r3,
-    g3,
-    b3,
-  );
-  AddTriangle(
-    x3,
-    y3,
-    z3,
-    r3,
-    g3,
-    b3,
-    x4,
-    y4,
-    z4,
-    r4,
-    g4,
-    b4,
-    x1,
-    y1,
-    z1,
-    r1,
-    g1,
-    b1,
-  );
+function AddQuad(x1, y1, z1, r1, g1, b1, x2, y2, z2, r2, g2, b2, x3, y3, z3, r3, g3, b3, x4, y4, z4, r4, g4, b4) {
+  AddTriangle(x1, y1, z1, r1, g1, b1, x2, y2, z2, r2, g2, b2, x3, y3, z3, r3, g3, b3);
+  AddTriangle(x3, y3, z3, r3, g3, b3, x4, y4, z4, r4, g4, b4, x1, y1, z1, r1, g1, b1);
 }
 
 function CreateTriangle(width, height) {
   vertices.length = 0;
   const w = width * 0.5;
   const h = height * 0.5;
-  AddTriangle(
-    0.0,
-    h,
-    0.0,
-    1.0,
-    0.0,
-    0.0,
-    -w,
-    -h,
-    0.0,
-    0.0,
-    1.0,
-    0.0,
-    w,
-    -h,
-    0.0,
-    0.0,
-    0.0,
-  );
+  AddTriangle(0.0, h, 0.0, 1.0, 0.0, 0.0, -w, -h, 0.0, 0.0, 1.0, 0.0, w, -h, 0.0, 0.0, 0.0);
 }
 
 function CreateQuad(width, height) {
   vertices.length = 0;
   const w = width * 0.5;
   const h = height * 0.5;
-  AddQuad(
-    -w,
-    h,
-    0.0,
-    1.0,
-    0.0,
-    0.0,
-    -w,
-    -h,
-    0.0,
-    0.0,
-    1.0,
-    0.0,
-    w,
-    -h,
-    0.0,
-    0.0,
-    0.0,
-    1.0,
-    w,
-    h,
-    0.0,
-    1.0,
-    1.0,
-    0.0,
-  );
+  AddQuad(-w, h, 0.0, 1.0, 0.0, 0.0, -w, -h, 0.0, 0.0, 1.0, 0.0, w, -h, 0.0, 0.0, 0.0, 1.0, w, h, 0.0, 1.0, 1.0, 0.0);
+}
+
+function CreateBox(width, height, depth) {
+  vertices.length = 0;
+  const w = width * 0.5;
+  const h = height * 0.5;
+  const d = depth * 0.5;
+  AddQuad(-w, h, -d, 1.0, 0.0, 0.0, -w, -h, -d, 0.0, 1.0, 0.0, w, -h, -d, 0.0, 0.0, 1.0, w, h, -d, 1.0, 1.0, 0.0);
+  AddQuad(-w, -h, d, 1.0, 0.0, 0.0, -w, h, d, 0.0, 1.0, 0.0, w, h, d, 0.0, 0.0, 1.0, w, -h, d, 1.0, 1.0, 0.0);
+  AddQuad(-w, h, d, 1.0, 0.0, 0.0, -w, h, -d, 0.0, 1.0, 0.0, w, h, -d, 0.0, 0.0, 1.0, w, h, d, 1.0, 1.0, 0.0);
+  AddQuad(-w, h, d, 1.0, 0.0, 0.0, -w, h, -d, 0.0, 1.0, 0.0, w, h, -d, 0.0, 0.0, 1.0, w, h, d, 1.0, 1.0, 0.0);
+  AddQuad(w, -h, d, 1.0, 0.0, 0.0, w, -h, -d, 0.0, 1.0, 0.0, -w, -h, -d, 0.0, 0.0, 1.0, -w, -h, d, 1.0, 1.0, 0.0);
+  AddQuad(-w, h, d, 1.0, 0.0, 0.0, -w, -h, d, 0.0, 1.0, 0.0, -w, -h, -d, 0.0, 0.0, 1.0, -w, h, -d, 1.0, 1.0, 0.0);
+  AddQuad(w, -h, d, 1.0, 0.0, 0.0, w, h, d, 0.0, 1.0, 0.0, w, h, -d, 0.0, 0.0, 1.0, w, -h, -d, 1.0, 1.0, 0.0);
 }

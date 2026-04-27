@@ -1,13 +1,13 @@
 /** @type {WebGL2RenderingContext} */
-var gl =
-  document.getElementById("glCanvas").getContext("webgl") ||
-  document.getElementById("glCanvas").getContext("experimental-webgl");
+var gl = document.getElementById("glCanvas").getContext("webgl") || document.getElementById("glCanvas").getContext("experimental-webgl");
 
 var vertices = [];
 var mouseX = 0,
   mouseY = 0;
 var angle = [0.0, 0.0, 0.0, 1.0];
 var angleGL = 0;
+var white = [255, 255, 255];
+var black = [0, 0, 0];
 
 document.getElementById("glCanvas").addEventListener("mousemove", function (e) {
   if (e.buttons == 1) {
@@ -118,6 +118,10 @@ function CreateGeometryUI() {
   const height = heightElement ? heightElement.value : 1.0;
   const depthElement = document.getElementById("depth");
   const depth = depthElement ? depthElement.value : 1.0;
+  const divsXElement = document.getElementById("divsX");
+  const divsX = divsXElement ? divsXElement.value : 0;
+  const divsYElement = document.getElementById("divsY");
+  const divsY = divsYElement ? divsYElement.value : 0;
 
   document.getElementById("ui").innerHTML =
     'Width: <input type="number" id="width" value="' +
@@ -128,7 +132,13 @@ function CreateGeometryUI() {
     '" onchange="InitShaders();"><br>' +
     'Depth: <input type="number" id="depth" value="' +
     depth +
-    '" onchange="InitShaders();">';
+    '" onchange="InitShaders();"><br>' +
+    'Divs X: <input type="number" id="divsX" value="' +
+    divsX +
+    '" onchange="InitShaders();"><br>' +
+    'DivsY: <input type="number" id="divsY" value="' +
+    divsY +
+    '" onchange="InitShaders();">'
 
   let selection = document.getElementById("shape");
   switch (selection.selectedIndex) {
@@ -139,7 +149,7 @@ function CreateGeometryUI() {
       CreateQuad(width, height);
       break;
     case 2:
-      CreateBox(width, height, depth);
+      CreateBox(width, height, depth, divsX, divsY);
   }
 }
 
@@ -213,16 +223,111 @@ function CreateQuad(width, height) {
   AddQuad(-w, h, 0.0, 1.0, 0.0, 0.0, -w, -h, 0.0, 0.0, 1.0, 0.0, w, -h, 0.0, 0.0, 0.0, 1.0, w, h, 0.0, 1.0, 1.0, 0.0);
 }
 
-function CreateBox(width, height, depth) {
+function CreateBox(width, height, depth, divsX, divsY) {
   vertices.length = 0;
   const w = width * 0.5;
   const h = height * 0.5;
   const d = depth * 0.5;
-  AddQuad(-w, h, -d, 1.0, 0.0, 0.0, -w, -h, -d, 0.0, 1.0, 0.0, w, -h, -d, 0.0, 0.0, 1.0, w, h, -d, 1.0, 1.0, 0.0);
+
+
+  const rowAmount = Number(divsY) + 1;
+  const columnAmount = Number(divsX) + 1;
+  const rowHeight = height / rowAmount;
+  const columnWidth = width / columnAmount;
+  const columnDepth = depth / columnAmount;
+  const rowDepth = depth / rowAmount;
+
+  const top = h;
+  const left = -w;
+  const right = w;
+  const bot = -h;
+  const back = d;
+  const front = -d;
+
+  console.log(
+    "Rowamount: ", rowAmount,
+    " columnAmount: ", columnAmount,
+    "spaceBetweenX: ", columnWidth,
+    "spaceBetweenY: ", rowHeight,
+    "columnDepth: ", columnDepth,
+    "width: ", width,
+    "height: ", height
+  )
+
+  let c = 255;
+
+  for (let row = 0; row < rowAmount; row++){
+    
+    let botY = bot + rowHeight * row;
+    let topY = botY + rowHeight;
+    
+    c = row % 2 == 1 ? 0 : 255;
+
+    // Draw Sides
+    for (let column = 0; column < columnAmount; column++){
+      
+      // Draw Frontside
+      let leftX = left + columnWidth * column;
+      let rightX = leftX + columnWidth;
+      let leftZ = front;
+      let rightZ = front;
+      AddQuad(leftX, topY, leftZ, c, c, c, leftX, botY, leftZ, c, c, c, rightX, botY, rightZ, c, c, c, rightX, topY, rightZ, c, c, c)
+
+      // Draw Backside
+      leftX = right - columnWidth * column;
+      rightX = leftX - columnWidth;
+      leftZ = back;
+      rightZ = back;
+      AddQuad(leftX, topY, leftZ, c, c, c, leftX, botY, leftZ, c, c, c, rightX, botY, rightZ, c, c, c, rightX, topY, rightZ, c, c, c)
+      
+      // Draw Left-side
+      leftX = left;
+      rightX = left;
+      leftZ = back - columnDepth * column;
+      rightZ = leftZ - columnDepth;
+      AddQuad(leftX, topY, leftZ, c, c, c, leftX, botY, leftZ, c, c, c, rightX, botY, rightZ, c, c, c, rightX, topY, rightZ, c, c, c)
+
+      // Draw Right-side
+      leftX = right;
+      rightX = right;
+      leftZ = front + columnDepth * column;
+      rightZ = leftZ + columnDepth;
+      AddQuad(leftX, topY, leftZ, c, c, c, leftX, botY, leftZ, c, c, c, rightX, botY, rightZ, c, c, c, rightX, topY, rightZ, c, c, c)
+
+      c = c == 255 ? 0 : 255;
+    }
+    
+    c = row % 2 == 0 ? 255 : 0;
+    // Draw Top and Bot
+    let botZ = front + rowDepth * row
+    let topZ = botZ + rowDepth;
+    console.log(topZ,botZ)
+    for (let column = 0; column < columnAmount; column++){
+      // Draw Top
+      topY = top;
+      botY = top;
+      let leftX = left + columnWidth * column;
+      let rightX = leftX + columnWidth;
+      AddQuad(leftX, topY, topZ, c, c, c, leftX, botY, botZ, c, c, c, rightX, botY, botZ, c, c, c, rightX, topY, topZ, c, c, c)
+
+      // Draw Bot
+      topY = bot;
+      botY = bot;
+      leftX = right - columnWidth * column;
+      rightX = leftX - columnWidth;
+      AddQuad(leftX, topY, topZ, c, c, c, leftX, botY, botZ, c, c, c, rightX, botY, botZ, c, c, c, rightX, topY, topZ, c, c, c)
+      c = c == 255 ? 0 : 255;
+    }
+
+  }
+
+  
+  /*AddQuad(-w, h, -d, 1.0, 0.0, 0.0, -w, -h, -d, 0.0, 1.0, 0.0, w, -h, -d, 0.0, 0.0, 1.0, w, h, -d, 1.0, 1.0, 0.0);
   AddQuad(-w, -h, d, 1.0, 0.0, 0.0, -w, h, d, 0.0, 1.0, 0.0, w, h, d, 0.0, 0.0, 1.0, w, -h, d, 1.0, 1.0, 0.0);
   AddQuad(-w, h, d, 1.0, 0.0, 0.0, -w, h, -d, 0.0, 1.0, 0.0, w, h, -d, 0.0, 0.0, 1.0, w, h, d, 1.0, 1.0, 0.0);
   AddQuad(-w, h, d, 1.0, 0.0, 0.0, -w, h, -d, 0.0, 1.0, 0.0, w, h, -d, 0.0, 0.0, 1.0, w, h, d, 1.0, 1.0, 0.0);
   AddQuad(w, -h, d, 1.0, 0.0, 0.0, w, -h, -d, 0.0, 1.0, 0.0, -w, -h, -d, 0.0, 0.0, 1.0, -w, -h, d, 1.0, 1.0, 0.0);
   AddQuad(-w, h, d, 1.0, 0.0, 0.0, -w, -h, d, 0.0, 1.0, 0.0, -w, -h, -d, 0.0, 0.0, 1.0, -w, h, -d, 1.0, 1.0, 0.0);
-  AddQuad(w, -h, d, 1.0, 0.0, 0.0, w, h, d, 0.0, 1.0, 0.0, w, h, -d, 0.0, 0.0, 1.0, w, -h, -d, 1.0, 1.0, 0.0);
+  AddQuad(w, -h, d, 1.0, 0.0, 0.0, w, h, d, 0.0, 1.0, 0.0, w, h, -d, 0.0, 0.0, 1.0, w, -h, -d, 1.0, 1.0, 0.0);*/
 }
+

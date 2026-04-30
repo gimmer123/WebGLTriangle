@@ -1,13 +1,16 @@
 /** @type {WebGL2RenderingContext} */
-var gl = document.getElementById("glCanvas").getContext("webgl") || document.getElementById("glCanvas").getContext("experimental-webgl");
+var gl =
+  document.getElementById("glCanvas").getContext("webgl") ||
+  document.getElementById("glCanvas").getContext("experimental-webgl");
 
 var vertices = [];
 var mouseX = 0,
   mouseY = 0;
 var angle = [0.0, 0.0, 0.0, 1.0];
 var angleGL = 0;
-var white = [255, 255, 255];
-var black = [0, 0, 0];
+var textureGL = 0;
+var display = [0.0, 0.0, 0.0, 0.0];
+var displayGL = 0;
 
 document.getElementById("glCanvas").addEventListener("mousemove", function (e) {
   if (e.buttons == 1) {
@@ -26,7 +29,10 @@ function InitWebGL() {
     return;
   }
   let canvas = document.getElementById("glCanvas");
-  if (canvas.width != canvas.clientWidth || canvas.height != canvas.clientHeight) {
+  if (
+    canvas.width != canvas.clientWidth ||
+    canvas.height != canvas.clientHeight
+  ) {
     canvas.width = canvas.clientWidth;
     canvas.height = canvas.clientHeight;
   }
@@ -119,9 +125,11 @@ function CreateGeometryUI() {
   const depthElement = document.getElementById("depth");
   const depth = depthElement ? depthElement.value : 1.0;
   const divsXElement = document.getElementById("divsX");
-  const divsX = divsXElement ? divsXElement.value : 0;
+  const divsX = divsXElement ? divsXElement.value : 0.0;
   const divsYElement = document.getElementById("divsY");
-  const divsY = divsYElement ? divsYElement.value : 0;
+  const divsY = divsYElement ? divsYElement.value : 0.0;
+  const sectorCountElement = document.getElementById("sc");
+  const scValue = sectorCountElement ? sectorCountElement.value : 0.0;
 
   document.getElementById("ui").innerHTML =
     'Width: <input type="number" id="width" value="' +
@@ -138,7 +146,10 @@ function CreateGeometryUI() {
     '" onchange="InitShaders();"><br>' +
     'DivsY: <input type="number" id="divsY" value="' +
     divsY +
-    '" onchange="InitShaders();">'
+    '" onchange="InitShaders();"><br>' +
+    'Sector Count: <input type="number" id="sc" value="' +
+    scValue +
+    '" onchange="InitShaders();">';
 
   let selection = document.getElementById("shape");
   switch (selection.selectedIndex) {
@@ -150,6 +161,9 @@ function CreateGeometryUI() {
       break;
     case 2:
       CreateBox(width, height, depth, divsX, divsY);
+    case 3:
+      gl.disable(gl.CULL_FACE);
+      CreateCylinder(0.5, 1, scValue);
   }
 }
 
@@ -159,8 +173,13 @@ function CreateGeometryBuffers(program) {
   CreateVBO(program, new Float32Array(vertices));
 
   angleGL = gl.getUniformLocation(program, "Angle");
+  CreateTexture(program, "img/textureCheck.jpg");
 
   gl.useProgram(program);
+
+  gl.uniform4fv(angleGL, new Float32Array(angle));
+
+  gl.uniform4fv(displayGL, new Float32Array(display));
 
   Render();
 }
@@ -169,58 +188,109 @@ function CreateVBO(program, vertices) {
   let vbo = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
   gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
-  const vertSize = 6 * Float32Array.BYTES_PER_ELEMENT;
+  const stride = 11 * Float32Array.BYTES_PER_ELEMENT;
 
   let position = gl.getAttribLocation(program, "Pos");
-  gl.vertexAttribPointer(position, 3, gl.FLOAT, gl.FALSE, vertSize, 0);
+  gl.vertexAttribPointer(position, 3, gl.FLOAT, gl.FALSE, stride, 0);
   gl.enableVertexAttribArray(position);
 
-  const colorStart = 3 * Float32Array.BYTES_PER_ELEMENT;
+  const colorOffset = 3 * Float32Array.BYTES_PER_ELEMENT;
   let color = gl.getAttribLocation(program, "Color");
-  gl.vertexAttribPointer(color, 3, gl.FLOAT, gl.FALSE, vertSize, colorStart);
+  gl.vertexAttribPointer(color, 3, gl.FLOAT, gl.FALSE, stride, colorOffset);
   gl.enableVertexAttribArray(color);
+
+  const uvOffset = colorOffset * 2;
+  let uv = gl.getAttribLocation(program, "UV");
+  gl.vertexAttribPointer(uv, 2, gl.FLOAT, gl.FALSE, stride, uvOffset);
+  gl.enableVertexAttribArray(uv);
+
+  const normalOffset = 8 * Float32Array.BYTES_PER_ELEMENT;
+  let normal = gl.getAttribLocation(program, "Normal");
+  gl.vertexAttribPointer(normal, 3, gl.FLOAT, gl.FALSE, stride, normalOffset);
+  gl.enableVertexAttribArray(normal);
+}
+
+function Update() {
+  const textureCheck = document.getElementById("t");
+  display[3] = textureCheck.checked ? 1.0 : 0.0;
+
+  const lightColor = document.getElementById("light").value;
+  display[0] = parseInt(lightColor.substring(1, 3), 16) / 255.0;
+  display[1] = parseInt(lightColor.substring(3, 5), 16) / 255.0;
+  display[2] = parseInt(lightColor.substring(5, 7), 16) / 255.0;
+
+  gl.uniform4fv(displayGL, new Float32Array(display));
+  Render();
 }
 
 function Render() {
   gl.clearColor(0.0, 0.4, 0.6, 1.0);
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-  gl.drawArrays(gl.TRIANGLES, 0, vertices.length / 6);
+  gl.drawArrays(gl.TRIANGLES, 0, vertices.length / 11);
 }
 
-function AddVertex(x, y, z, r, g, b) {
+function AddVertex(x, y, z, r, g, b, u, v, nx, ny, nz) {
   const index = vertices.length;
-  vertices.length += 6;
+  vertices.length += 11;
   vertices[index + 0] = x;
   vertices[index + 1] = y;
   vertices[index + 2] = z;
   vertices[index + 3] = r;
   vertices[index + 4] = g;
   vertices[index + 5] = b;
+  vertices[index + 6] = u;
+  vertices[index + 7] = v;
+  vertices[index + 8] = nx;
+  vertices[index + 9] = ny;
+  vertices[index + 10] = nz;
 }
 
-function AddTriangle(x1, y1, z1, r1, g1, b1, x2, y2, z2, r2, g2, b2, x3, y3, z3, r3, g3, b3) {
-  AddVertex(x1, y1, z1, r1, g1, b1);
-  AddVertex(x2, y2, z2, r2, g2, b2);
-  AddVertex(x3, y3, z3, r3, g3, b3);
+// prettier-ignore
+function AddTriangle(x1, y1, z1, r1, g1, b1, u1, v1, nx1, ny1, nz1,
+                     x2, y2, z2, r2, g2, b2, u2, v2, nx2, ny2, nz2,
+                     x3, y3, z3, r3, g3, b3, u3, v3, nx3, ny3, nz3) {
+  AddVertex(x1, y1, z1, r1, g1, b1, u1, v1, nx1, ny1, nz1);
+  AddVertex(x2, y2, z2, r2, g2, b2, u2, v2, nx2, ny2, nz2);
+  AddVertex(x3, y3, z3, r3, g3, b3, u3, v3, nx3, ny3, nz3);
 }
 
-function AddQuad(x1, y1, z1, r1, g1, b1, x2, y2, z2, r2, g2, b2, x3, y3, z3, r3, g3, b3, x4, y4, z4, r4, g4, b4) {
-  AddTriangle(x1, y1, z1, r1, g1, b1, x2, y2, z2, r2, g2, b2, x3, y3, z3, r3, g3, b3);
-  AddTriangle(x3, y3, z3, r3, g3, b3, x4, y4, z4, r4, g4, b4, x1, y1, z1, r1, g1, b1);
+// prettier-ignore
+function AddQuad(x1, y1, z1, r1, g1, b1, u1, v1, nx1, ny1, nz1,
+                 x2, y2, z2, r2, g2, b2, u2, v2, nx2, ny2, nz2,
+                 x3, y3, z3, r3, g3, b3, u3, v3, nx3, ny3, nz3,
+                 x4, y4, z4, r4, g4, b4, u4, v4, nx4, ny4, nz4) {
+  AddTriangle(x1, y1, z1, r1, g1, b1, u1, v1, nx1, ny1, nz1,
+              x2, y2, z2, r2, g2, b2, u2, v2, nx2, ny2, nz2,
+              x3, y3, z3, r3, g3, b3, u3, v3, nx3, ny3, nz3);
+
+  AddTriangle(x3, y3, z3, r3, g3, b3, u3, v3, nx3, ny3, nz3,
+              x4, y4, z4, r4, g4, b4, u4, v4, nx4, ny4, nz4,
+              x1, y1, z1, r1, g1, b1, u1, v1, nx1, ny1, nz1);
 }
 
 function CreateTriangle(width, height) {
   vertices.length = 0;
   const w = width * 0.5;
   const h = height * 0.5;
-  AddTriangle(0.0, h, 0.0, 1.0, 0.0, 0.0, -w, -h, 0.0, 0.0, 1.0, 0.0, w, -h, 0.0, 0.0, 0.0);
+
+  // prettier-ignore
+  AddTriangle(0.0, h, 0.0, 1.0, 0.0, 0.0, 0.5, 1.0, 0.0, 0.0, 1.0,
+              -w, -h, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0,
+               w, -h, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 1.0
+  );
 }
 
 function CreateQuad(width, height) {
   vertices.length = 0;
   const w = width * 0.5;
   const h = height * 0.5;
-  AddQuad(-w, h, 0.0, 1.0, 0.0, 0.0, -w, -h, 0.0, 0.0, 1.0, 0.0, w, -h, 0.0, 0.0, 0.0, 1.0, w, h, 0.0, 1.0, 1.0, 0.0);
+
+  // prettier-ignore
+  AddQuad(-w, h, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0,
+          -w,-h, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0,
+           w,-h, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 1.0,
+           w, h, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0
+  );
 }
 
 function CreateBox(width, height, depth, divsX, divsY) {
@@ -228,7 +298,6 @@ function CreateBox(width, height, depth, divsX, divsY) {
   const w = width * 0.5;
   const h = height * 0.5;
   const d = depth * 0.5;
-
 
   const rowAmount = Number(divsY) + 1;
   const columnAmount = Number(divsX) + 1;
@@ -245,89 +314,209 @@ function CreateBox(width, height, depth, divsX, divsY) {
   const front = -d;
 
   console.log(
-    "Rowamount: ", rowAmount,
-    " columnAmount: ", columnAmount,
-    "spaceBetweenX: ", columnWidth,
-    "spaceBetweenY: ", rowHeight,
-    "columnDepth: ", columnDepth,
-    "width: ", width,
-    "height: ", height
-  )
+    "Rowamount: ",
+    rowAmount,
+    " columnAmount: ",
+    columnAmount,
+    "spaceBetweenX: ",
+    columnWidth,
+    "spaceBetweenY: ",
+    rowHeight,
+    "columnDepth: ",
+    columnDepth,
+    "width: ",
+    width,
+    "height: ",
+    height,
+  );
 
   let c = 255;
 
-  for (let row = 0; row < rowAmount; row++){
-    
+  for (let row = 0; row < rowAmount; row++) {
     let botY = bot + rowHeight * row;
     let topY = botY + rowHeight;
-    
+
     c = row % 2 == 1 ? 0 : 255;
 
     // Draw Sides
-    for (let column = 0; column < columnAmount; column++){
-      
+    for (let column = 0; column < columnAmount; column++) {
       // Draw Frontside
       let leftX = left + columnWidth * column;
       let rightX = leftX + columnWidth;
       let leftZ = front;
       let rightZ = front;
-      AddQuad(leftX, topY, leftZ, c, c, c, leftX, botY, leftZ, c, c, c, rightX, botY, rightZ, c, c, c, rightX, topY, rightZ, c, c, c)
+
+      // prettier-ignore
+      AddQuad(leftX, topY, leftZ, c, c, c, 0.0, 1.0, 0.0, 0.0, 1.0,
+              leftX, botY, leftZ, c, c, c, 0.0, 0.0, 0.0, 0.0, 1.0,
+              rightX,botY, rightZ,c, c, c, 1.0, 0.0, 0.0, 0.0, 1.0,
+              rightX,topY, rightZ,c, c, c, 1.0, 1.0, 0.0, 0.0, 1.0
+      );
 
       // Draw Backside
       leftX = right - columnWidth * column;
       rightX = leftX - columnWidth;
       leftZ = back;
       rightZ = back;
-      AddQuad(leftX, topY, leftZ, c, c, c, leftX, botY, leftZ, c, c, c, rightX, botY, rightZ, c, c, c, rightX, topY, rightZ, c, c, c)
-      
+
+      //prettier-ignore
+      AddQuad(leftX, topY, leftZ, c, c, c, 1, 0, 0.0, 0.0, -1.0,
+              leftX, botY, leftZ, c, c, c, 1, 1, 0.0, 0.0, -1.0,
+              rightX,botY, rightZ,c, c, c, 0, 1, 0.0, 0.0, -1.0, 
+              rightX,topY, rightZ,c, c, c, 0, 0, 0.0, 0.0, -1.0
+      );
+
       // Draw Left-side
       leftX = left;
       rightX = left;
       leftZ = back - columnDepth * column;
       rightZ = leftZ - columnDepth;
-      AddQuad(leftX, topY, leftZ, c, c, c, leftX, botY, leftZ, c, c, c, rightX, botY, rightZ, c, c, c, rightX, topY, rightZ, c, c, c)
+
+      //prettier-ignore
+      AddQuad(leftX, topY, leftZ, c, c, c, 0.0, 1.0, 1.0, 0.0, 0.0,
+              leftX, botY, leftZ, c, c, c, 0.0, 0.0, 1.0, 0.0, 0.0,
+              rightX,botY, rightZ,c, c, c, 1.0, 0.0, 1.0, 0.0, 0.0,
+              rightX,topY, rightZ,c, c, c, 1.0, 1.0, 1.0, 0.0, 0.0
+      );
 
       // Draw Right-side
       leftX = right;
       rightX = right;
       leftZ = front + columnDepth * column;
       rightZ = leftZ + columnDepth;
-      AddQuad(leftX, topY, leftZ, c, c, c, leftX, botY, leftZ, c, c, c, rightX, botY, rightZ, c, c, c, rightX, topY, rightZ, c, c, c)
+
+      //prettier-ignore
+      AddQuad(leftX, topY, leftZ, c, c, c, 0.0, 1.0, -1.0, 0.0, 0.0,
+              leftX, botY, leftZ, c, c, c, 0.0, 0.0, -1.0, 0.0, 0.0,
+              rightX,botY, rightZ,c, c, c, 1.0, 0.0, -1.0, 0.0, 0.0,
+              rightX,topY, rightZ,c, c, c, 1.0, 1.0, -1.0, 0.0, 0.0
+      );
 
       c = c == 255 ? 0 : 255;
     }
-    
+
     c = row % 2 == 0 ? 255 : 0;
     // Draw Top and Bot
-    let botZ = front + rowDepth * row
+    let botZ = front + rowDepth * row;
     let topZ = botZ + rowDepth;
-    console.log(topZ,botZ)
-    for (let column = 0; column < columnAmount; column++){
+    console.log(topZ, botZ);
+    for (let column = 0; column < columnAmount; column++) {
       // Draw Top
       topY = top;
       botY = top;
       let leftX = left + columnWidth * column;
       let rightX = leftX + columnWidth;
-      AddQuad(leftX, topY, topZ, c, c, c, leftX, botY, botZ, c, c, c, rightX, botY, botZ, c, c, c, rightX, topY, topZ, c, c, c)
+
+      //prettier-ignore
+      AddQuad(leftX, topY, topZ, c, c, c, 0.0, 1.0, 0.0, -1.0, 0.0, 
+              leftX, botY, botZ, c, c, c, 0.0, 0.0, 0.0, -1.0, 0.0,
+              rightX,botY, botZ, c, c, c, 1.0, 0.0, 0.0, -1.0, 0.0,
+              rightX,topY, topZ, c, c, c, 1.0, 1.0, 0.0, -1.0, 0.0
+      );
 
       // Draw Bot
       topY = bot;
       botY = bot;
       leftX = right - columnWidth * column;
       rightX = leftX - columnWidth;
-      AddQuad(leftX, topY, topZ, c, c, c, leftX, botY, botZ, c, c, c, rightX, botY, botZ, c, c, c, rightX, topY, topZ, c, c, c)
+
+      //prettier-ignore
+      AddQuad(leftX, topY, topZ, c, c, c, 1.0, 0.0, 0.0, 1.0, 0.0,
+              leftX, botY, botZ, c, c, c, 1.0, 1.0, 0.0, 1.0, 0.0,
+              rightX,botY, botZ, c, c, c, 0.0, 1.0, 0.0, 1.0, 0.0,
+              rightX, topY,topZ, c, c, c, 0.0, 0.0, 0.0, 1.0, 0.0
+      );
       c = c == 255 ? 0 : 255;
     }
-
   }
-
-  
-  /*AddQuad(-w, h, -d, 1.0, 0.0, 0.0, -w, -h, -d, 0.0, 1.0, 0.0, w, -h, -d, 0.0, 0.0, 1.0, w, h, -d, 1.0, 1.0, 0.0);
-  AddQuad(-w, -h, d, 1.0, 0.0, 0.0, -w, h, d, 0.0, 1.0, 0.0, w, h, d, 0.0, 0.0, 1.0, w, -h, d, 1.0, 1.0, 0.0);
-  AddQuad(-w, h, d, 1.0, 0.0, 0.0, -w, h, -d, 0.0, 1.0, 0.0, w, h, -d, 0.0, 0.0, 1.0, w, h, d, 1.0, 1.0, 0.0);
-  AddQuad(-w, h, d, 1.0, 0.0, 0.0, -w, h, -d, 0.0, 1.0, 0.0, w, h, -d, 0.0, 0.0, 1.0, w, h, d, 1.0, 1.0, 0.0);
-  AddQuad(w, -h, d, 1.0, 0.0, 0.0, w, -h, -d, 0.0, 1.0, 0.0, -w, -h, -d, 0.0, 0.0, 1.0, -w, -h, d, 1.0, 1.0, 0.0);
-  AddQuad(-w, h, d, 1.0, 0.0, 0.0, -w, -h, d, 0.0, 1.0, 0.0, -w, -h, -d, 0.0, 0.0, 1.0, -w, h, -d, 1.0, 1.0, 0.0);
-  AddQuad(w, -h, d, 1.0, 0.0, 0.0, w, h, d, 0.0, 1.0, 0.0, w, h, -d, 0.0, 0.0, 1.0, w, -h, -d, 1.0, 1.0, 0.0);*/
 }
 
+function CreateTexture(prog, url) {
+  const texture = LoadTexture(url);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  textureGL = gl.getUniformLocation(prog, "Texture");
+  displayGL = gl.getUniformLocation(prog, "Display");
+}
+
+function LoadTexture(url) {
+  const texture = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  const pixel = new Uint8Array([0, 0, 255, 255]);
+  gl.texImage2D(
+    gl.TEXTURE_2D,
+    0,
+    gl.RGBA,
+    1,
+    1,
+    0,
+    gl.RGBA,
+    gl.UNSIGNED_BYTE,
+    pixel,
+  );
+  const image = new Image();
+  image.onload = () => {
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+    SetTextureFilters(image);
+  };
+  image.src = url;
+  return texture;
+}
+
+function SetTextureFilters(image) {
+  if (IsPow2(image.width) && IsPow2(image.height)) {
+    gl.generateMipmap(gl.TEXTURE_2D);
+  } else {
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  }
+}
+
+function IsPow2(value) {
+  return (value & (value - 1)) === 0;
+}
+
+function CreateCylinder(radius, height, sectorCount) {
+  vertices.length = 0;
+  sectorStep = (2 * Math.PI) / sectorCount;
+  let sectorAngle;
+  let xzCoordinates = [];
+
+  let top = height / 2;
+  let bot = -height / 2;
+
+  for (i = 0; i <= sectorCount; i++) {
+    sectorAngle = i * sectorStep;
+    /* angleRadian = radian(sectorAngle); */
+    let x = radius * Math.cos(sectorAngle);
+    let z = radius * Math.sin(sectorAngle);
+
+    let index = xzCoordinates.length;
+    xzCoordinates.push(x);
+    xzCoordinates.push(z);
+    console.log(sectorAngle);
+  }
+
+  for (i = 0; i <= sectorCount; i++) {
+    let x = xzCoordinates.shift();
+    let z = xzCoordinates.shift();
+    let x2 = xzCoordinates[0];
+    let z2 = xzCoordinates[1];
+
+    // prettier-ignore
+    AddQuad(x, top, z, 128, 128, 128, 0, 1, -x, -top, -z,
+            x, bot, z, 128, 128, 128, 0, 0, -x, -bot, -z,
+            x2, bot, z2, 128, 128, 128, 1, 0, -x2, -bot, -z2,
+            x2, top, z2, 128, 128, 128, 1, 1, -x2, -top, -z2
+    );
+
+    console.log("hej");
+  }
+}
+
+function radian(degrees) {
+  return Math.PI / 180;
+}

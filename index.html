@@ -36,7 +36,7 @@
             gl_Position = matY * matX * vec4(Pos, 1.0);
             vertexColor = Color;
             uv = UV;
-            normal = mat3(matX * matY) * Normal;
+            normal = mat3(matY * matX) * Normal;
         }
     </textarea>
     <textarea id="fragmentShader" spellcheck="false">
@@ -54,7 +54,7 @@
             float p = abs(Display.w);
             vec3 texture = texture2D(Texture, uv).rgb;
             vec3 color = vertexColor;
-            gl_FragColor = vec4(mix(color, texture, p) * shade * 2.0, 1.0);
+            gl_FragColor = vec4(mix(color, texture, p) * shade, 1.0);
         }
     </textarea>
     <select id="shape" onchange="InitShaders()">

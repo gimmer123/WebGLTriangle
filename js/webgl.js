@@ -129,7 +129,9 @@ function CreateGeometryUI() {
   const divsYElement = document.getElementById("divsY");
   const divsY = divsYElement ? divsYElement.value : 0.0;
   const sectorCountElement = document.getElementById("sc");
-  const scValue = sectorCountElement ? sectorCountElement.value : 0.0;
+  const scValue = sectorCountElement ? sectorCountElement.value : 2.0;
+  const radiusElement = document.getElementById("radius");
+  const radiusValue = radiusElement ? radiusElement.value : 0.5;
 
   document.getElementById("ui").innerHTML =
     'Width: <input type="number" id="width" value="' +
@@ -149,6 +151,9 @@ function CreateGeometryUI() {
     '" onchange="InitShaders();"><br>' +
     'Sector Count: <input type="number" id="sc" value="' +
     scValue +
+    '" onchange="InitShaders();"><br>' +
+    'Radius: <input type="number" id="radius" value="' +
+    radiusValue +
     '" onchange="InitShaders();">';
 
   let selection = document.getElementById("shape");
@@ -161,9 +166,11 @@ function CreateGeometryUI() {
       break;
     case 2:
       CreateBox(width, height, depth, divsX, divsY);
+      break;
     case 3:
       gl.disable(gl.CULL_FACE);
-      CreateCylinder(0.5, 1, scValue);
+      CreateCylinder(radiusValue, height, scValue);
+      break;
   }
 }
 
@@ -507,13 +514,11 @@ function CreateCylinder(radius, height, sectorCount) {
     let z2 = xzCoordinates[1];
 
     // prettier-ignore
-    AddQuad(x, top, z, 128, 128, 128, 0, 1, -x, -top, -z,
-            x, bot, z, 128, 128, 128, 0, 0, -x, -bot, -z,
-            x2, bot, z2, 128, 128, 128, 1, 0, -x2, -bot, -z2,
-            x2, top, z2, 128, 128, 128, 1, 1, -x2, -top, -z2
+    AddQuad(x, top, z, 0, 0, 255, 0, 1, -x, -top, -z,
+            x, bot, z, 0, 0, 255, 0, 0, -x, -bot, -z,
+            x2, bot, z2, 0, 0, 255, 1, 0, -x2, -bot, -z2,
+            x2, top, z2, 0, 0, 255, 1, 1, -x2, -top, -z2
     );
-
-    console.log("hej");
   }
 }
 

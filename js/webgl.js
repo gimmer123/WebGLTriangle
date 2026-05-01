@@ -514,8 +514,19 @@ function CreateCylinder(radius, height, sectorCount) {
     // prettier-ignore
     AddQuad(x, top, z, 0, 0, 255, 0, 1, -x, -top, -z,
             x, bot, z, 0, 0, 255, 0, 0, -x, -bot, -z,
-            x2, bot, z2, 0, 0, 255, 1, 0, -x2, -bot, -z2,
-            x2, top, z2, 0, 0, 255, 1, 1, -x2, -top, -z2
+            x2,bot, z2, 0, 0,255, 1, 0, -x2,-bot,-z2,
+            x2,top, z2, 0, 0,255, 1, 1, -x2,-top,-z2
+    );
+
+    // prettier-ignore
+    AddTriangle(0, top, 0, 0, 0, 255, 0.5, 1, 0, -1, 0,
+                x, top, z, 0, 0, 255,   0, 0, 0, -1, 0,
+                x2, top,z2,0, 0, 255,   1, 0, 0, -1, 0)
+
+    // prettier-ignore
+    AddTriangle(0, bot, 0, 0, 0, 255, 0.5, 1, 0, 1, 0,
+                x2,bot,z2, 0, 0, 255,   0, 0, 0, 1, 0,
+                x,bot,z, 0, 0, 255,   1, 0, 0, 1, 0
     );
   }
 }

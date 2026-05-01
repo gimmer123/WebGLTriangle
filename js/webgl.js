@@ -500,7 +500,6 @@ function CreateCylinder(radius, height, sectorCount) {
     let x = radius * Math.cos(sectorAngle);
     let z = radius * Math.sin(sectorAngle);
 
-    let index = xzCoordinates.length;
     xzCoordinates.push(x);
     xzCoordinates.push(z);
     console.log(sectorAngle);

@@ -497,7 +497,6 @@ function CreateCylinder(radius, height, sectorCount) {
 
   for (i = 0; i <= sectorCount; i++) {
     sectorAngle = i * sectorStep;
-    /* angleRadian = radian(sectorAngle); */
     let x = radius * Math.cos(sectorAngle);
     let z = radius * Math.sin(sectorAngle);
 

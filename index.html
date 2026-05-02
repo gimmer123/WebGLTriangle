@@ -15,28 +15,20 @@
         attribute vec3 Color;
         attribute vec2 UV;
         attribute vec3 Normal;
-        uniform vec4 Angle;
+        uniform mat4 mX;
+        uniform mat4 mY;
+        uniform mat4 Projection;
+        uniform mat4 ModelView;
         varying vec3 vertexColor;
         varying vec2 uv;
         varying vec3 normal;
         void main()
         {
-            float coX = cos(Angle.x);
-            float siX = sin(Angle.x);
-            mat4 matX = mat4(vec4(1.0, 0.0, 0.0, 0.0),
-                             vec4(0.0, coX, siX, 0.0),
-                             vec4(0.0,-siX, coX, 0.0),
-                             vec4(0.0, 0.0, 0.0, 1.0));
-            float coY = cos(Angle.y);
-            float siY = sin(Angle.y);
-            mat4 matY = mat4(vec4(coY, 0.0,-siY, 0.0),
-                             vec4(0.0, 1.0, 0.0, 0.0),
-                             vec4(siY, 0.0, coY, 0.0),
-                             vec4(0.0, 0.0, 0.0, 1.0));
-            gl_Position = matY * matX * vec4(Pos, 1.0);
+            
+            gl_Position = Projection * ModelView * mY * mX * vec4(Pos, 1.0);
             vertexColor = Color;
             uv = UV;
-            normal = mat3(matY * matX) * Normal;
+            normal = mat3(mY * mX) * Normal;
         }
     </textarea>
     <textarea id="fragmentShader" spellcheck="false">
@@ -61,8 +53,11 @@
       <option selected>Triangle</option>
       <option>Quad</option>
       <option>Box</option>
-      <option>Cylinder</option>
-    </select>
+      <option>Cylinder</option></select
+    ><br />
+    <input type="number" id="fov" value="90" onchange="Render()" />
+    FOV<br /><input type="number" id="zoom" value="1.2" onchange="Render()" />
+    Zoom<br />
     <input type="checkbox" id="t" onchange="Update()" />
     Show Texture<input
       type="color"

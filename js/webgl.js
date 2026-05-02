@@ -6,17 +6,66 @@ var gl =
 var vertices = [];
 var mouseX = 0,
   mouseY = 0;
-var angle = [0.0, 0.0, 0.0, 1.0];
-var angleGL = 0;
+
+var angleY = 0;
+var angleX = 0;
+
+// prettier-ignore
+var rotationX = [1.0, 0.0, 0.0, 0.0,
+                 0.0, 0.0, 0.0, 0.0,
+                 0.0, 0.0, 0.0, 0.0, 
+                 0.0, 0.0, 0.0, 1.0,
+];
+
+var matXGL = 0;
+
+// prettier-ignore
+var rotationY = [0.0, 0.0, 0.0, 0.0, 
+                 0.0, 1.0, 0.0, 0.0, 
+                 0.0, 0.0, 0.0, 0.0, 
+                 0.0, 0.0, 0.0, 1.0,
+];
+var matYGL = 0;
 var textureGL = 0;
 var display = [0.0, 0.0, 0.0, 0.0];
 var displayGL = 0;
+var proGL = 0;
+// prettier-ignore
+var projection = [0.0, 0.0, 0.0, 0.0,
+                  0.0, 0.0, 0.0, 0.0,
+                  0.0, 0.0, 0.0, 0.0,
+                  0.0, 0.0, 0.0, 0.0
+]
+var modGL = 0;
+
+// prettier-ignore
+var modelView = [1.0, 0.0, 0.0, 0.0,
+                 0.0, 1.0, 0.0, 0.0,
+                 0.0, 0.0, 1.0, 0.0,
+                 0.0, 0.0, -1.2,1.0,
+];
 
 document.getElementById("glCanvas").addEventListener("mousemove", function (e) {
   if (e.buttons == 1) {
-    angle[0] -= (mouseY - e.y) * 0.1;
-    angle[1] += (mouseX - e.x) * 0.1;
-    gl.uniform4fv(angleGL, new Float32Array(angle));
+    angleX -= (mouseY - e.y) * 0.1;
+    angleY += (mouseX - e.x) * 0.1;
+
+    let coX = Math.cos(angleX);
+    let siX = Math.sin(angleX);
+    rotationX[5] = coX;
+    rotationX[6] = siX;
+    rotationX[9] = -siX;
+    rotationX[10] = coX;
+
+    let coY = Math.cos(angleY);
+    let siY = Math.sin(angleY);
+    rotationY[0] = coY;
+    rotationY[2] = -siY;
+    rotationY[8] = siY;
+    rotationY[10] = coY;
+
+    gl.uniformMatrix4fv(matXGL, false, new Float32Array(rotationX));
+    gl.uniformMatrix4fv(matYGL, false, new Float32Array(rotationY));
     Render();
   }
   mouseX = e.x;
@@ -168,7 +217,6 @@ function CreateGeometryUI() {
       CreateBox(width, height, depth, divsX, divsY);
       break;
     case 3:
-      gl.disable(gl.CULL_FACE);
       CreateCylinder(radiusValue, height, scValue);
       break;
   }
@@ -179,12 +227,16 @@ function CreateGeometryBuffers(program) {
 
   CreateVBO(program, new Float32Array(vertices));
 
-  angleGL = gl.getUniformLocation(program, "Angle");
+  matXGL = gl.getUniformLocation(program, "mX");
+  matYGL = gl.getUniformLocation(program, "mY");
+  proGL = gl.getUniformLocation(program, "Projection");
+  modGL = gl.getUniformLocation(program, "ModelView");
   CreateTexture(program, "img/textureCheck.jpg");
 
   gl.useProgram(program);
 
-  gl.uniform4fv(angleGL, new Float32Array(angle));
+  gl.uniformMatrix4fv(matXGL, false, new Float32Array(rotationX));
+  gl.uniformMatrix4fv(matYGL, false, new Float32Array(rotationY));
 
   gl.uniform4fv(displayGL, new Float32Array(display));
 
@@ -233,6 +285,13 @@ function Update() {
 function Render() {
   gl.clearColor(0.0, 0.4, 0.6, 1.0);
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+  const zoom = document.getElementById("zoom").value;
+  modelView[14] = -zoom;
+  const fov = document.getElementById("fov").value;
+  const aspect = gl.canvas.width / gl.canvas.height;
+  Perspective(fov, aspect, 1.0, 2000.0);
+
   gl.drawArrays(gl.TRIANGLES, 0, vertices.length / 11);
 }
 
@@ -317,8 +376,8 @@ function CreateBox(width, height, depth, divsX, divsY) {
   const left = -w;
   const right = w;
   const bot = -h;
-  const back = d;
-  const front = -d;
+  const back = -d;
+  const front = d;
 
   console.log(
     "Rowamount: ",
@@ -376,20 +435,7 @@ function CreateBox(width, height, depth, divsX, divsY) {
       // Draw Left-side
       leftX = left;
       rightX = left;
-      leftZ = back - columnDepth * column;
-      rightZ = leftZ - columnDepth;
-
-      //prettier-ignore
-      AddQuad(leftX, topY, leftZ, c, c, c, 0.0, 1.0, 1.0, 0.0, 0.0,
-              leftX, botY, leftZ, c, c, c, 0.0, 0.0, 1.0, 0.0, 0.0,
-              rightX,botY, rightZ,c, c, c, 1.0, 0.0, 1.0, 0.0, 0.0,
-              rightX,topY, rightZ,c, c, c, 1.0, 1.0, 1.0, 0.0, 0.0
-      );
-
-      // Draw Right-side
-      leftX = right;
-      rightX = right;
-      leftZ = front + columnDepth * column;
+      leftZ = back + columnDepth * column;
       rightZ = leftZ + columnDepth;
 
       //prettier-ignore
@@ -399,13 +445,26 @@ function CreateBox(width, height, depth, divsX, divsY) {
               rightX,topY, rightZ,c, c, c, 1.0, 1.0, -1.0, 0.0, 0.0
       );
 
+      // Draw Right-side
+      leftX = right;
+      rightX = right;
+      leftZ = front - columnDepth * column;
+      rightZ = leftZ - columnDepth;
+
+      //prettier-ignore
+      AddQuad(leftX, topY, leftZ, c, c, c, 0.0, 1.0, 1.0, 0.0, 0.0,
+              leftX, botY, leftZ, c, c, c, 0.0, 0.0, 1.0, 0.0, 0.0,
+              rightX,botY, rightZ,c, c, c, 1.0, 0.0, 1.0, 0.0, 0.0,
+              rightX,topY, rightZ,c, c, c, 1.0, 1.0, 1.0, 0.0, 0.0
+      );
+
       c = c == 255 ? 0 : 255;
     }
 
     c = row % 2 == 0 ? 255 : 0;
     // Draw Top and Bot
-    let botZ = front + rowDepth * row;
-    let topZ = botZ + rowDepth;
+    let botZ = front - rowDepth * row;
+    let topZ = botZ - rowDepth;
     console.log(topZ, botZ);
     for (let column = 0; column < columnAmount; column++) {
       // Draw Top
@@ -415,10 +474,10 @@ function CreateBox(width, height, depth, divsX, divsY) {
       let rightX = leftX + columnWidth;
 
       //prettier-ignore
-      AddQuad(leftX, topY, topZ, c, c, c, 0.0, 1.0, 0.0, -1.0, 0.0, 
-              leftX, botY, botZ, c, c, c, 0.0, 0.0, 0.0, -1.0, 0.0,
-              rightX,botY, botZ, c, c, c, 1.0, 0.0, 0.0, -1.0, 0.0,
-              rightX,topY, topZ, c, c, c, 1.0, 1.0, 0.0, -1.0, 0.0
+      AddQuad(leftX, topY, topZ, c, c, c, 0.0, 1.0, 0.0, 1.0, 0.0, 
+              leftX, botY, botZ, c, c, c, 0.0, 0.0, 0.0, 1.0, 0.0,
+              rightX,botY, botZ, c, c, c, 1.0, 0.0, 0.0, 1.0, 0.0,
+              rightX,topY, topZ, c, c, c, 1.0, 1.0, 0.0, 1.0, 0.0
       );
 
       // Draw Bot
@@ -428,10 +487,10 @@ function CreateBox(width, height, depth, divsX, divsY) {
       rightX = leftX - columnWidth;
 
       //prettier-ignore
-      AddQuad(leftX, topY, topZ, c, c, c, 1.0, 0.0, 0.0, 1.0, 0.0,
-              leftX, botY, botZ, c, c, c, 1.0, 1.0, 0.0, 1.0, 0.0,
-              rightX,botY, botZ, c, c, c, 0.0, 1.0, 0.0, 1.0, 0.0,
-              rightX, topY,topZ, c, c, c, 0.0, 0.0, 0.0, 1.0, 0.0
+      AddQuad(leftX, topY, topZ, c, c, c, 1.0, 0.0, 0.0, -1.0, 0.0,
+              leftX, botY, botZ, c, c, c, 1.0, 1.0, 0.0, -1.0, 0.0,
+              rightX,botY, botZ, c, c, c, 0.0, 1.0, 0.0, -1.0, 0.0,
+              rightX, topY,topZ, c, c, c, 0.0, 0.0, 0.0, -1.0, 0.0
       );
       c = c == 255 ? 0 : 255;
     }
@@ -491,7 +550,7 @@ function CreateCylinder(radius, height, sectorCount) {
   sectorStep = (2 * Math.PI) / sectorCount;
   let sectorAngle;
   let xzCoordinates = [];
-
+  let uvCoordinates = [];
   let top = height / 2;
   let bot = -height / 2;
 
@@ -502,35 +561,49 @@ function CreateCylinder(radius, height, sectorCount) {
 
     xzCoordinates.push(x);
     xzCoordinates.push(z);
-    console.log(sectorAngle);
   }
 
   for (i = 0; i <= sectorCount; i++) {
     let x = xzCoordinates.shift();
-    let z = xzCoordinates.shift();
+    let z = -xzCoordinates.shift();
     let x2 = xzCoordinates[0];
-    let z2 = xzCoordinates[1];
+    let z2 = -xzCoordinates[1];
+    let u = (x2 + x) / 2 / radius;
+    let v = (z2 + z) / 2 / radius;
 
+    console.log("x2: ", x2, "x: ", x, "u: ", u);
     // prettier-ignore
-    AddQuad(x, top, z, 0, 0, 255, 0, 1, -x, -top, -z,
-            x, bot, z, 0, 0, 255, 0, 0, -x, -bot, -z,
-            x2,bot, z2, 0, 0,255, 1, 0, -x2,-bot,-z2,
-            x2,top, z2, 0, 0,255, 1, 1, -x2,-top,-z2
+    AddQuad(x, top, z, 0, 0, 255, 0, 1, u, 0, v,
+            x, bot, z, 0, 0, 255, 0, 0, u, 0, v,
+            x2,bot, z2, 0, 0,255, 1, 0, u,0,v,
+            x2,top, z2, 0, 0,255, 1, 1, u,0,v
     );
 
     // prettier-ignore
-    AddTriangle(0, top, 0, 0, 0, 255, 0.5, 1, 0, -1, 0,
-                x, top, z, 0, 0, 255,   0, 0, 0, -1, 0,
-                x2, top,z2,0, 0, 255,   1, 0, 0, -1, 0)
+    AddTriangle(0, top, 0, 0, 0, 255, 0.5, 1, 0, 1, 0,
+                x, top, z, 0, 0, 255,   0, 0, 0, 1, 0,
+                x2, top,z2,0, 0, 255,   1, 0, 0, 1, 0)
 
     // prettier-ignore
-    AddTriangle(0, bot, 0, 0, 0, 255, 0.5, 1, 0, 1, 0,
-                x2,bot,z2, 0, 0, 255,   0, 0, 0, 1, 0,
-                x,bot,z, 0, 0, 255,   1, 0, 0, 1, 0
+    AddTriangle(0, bot, 0, 0, 0, 255, 0.5, 1, 0, -1, 0,
+                x2,bot,z2, 0, 0, 255,   0, 0, 0, -1, 0,
+                x,bot,z, 0, 0, 255,   1, 0, 0, -1, 0
     );
   }
 }
 
 function radian(degrees) {
   return Math.PI / 180;
+}
+
+function Perspective(fovy, aspect, near, far) {
+  projection.fill(0);
+  const f = Math.tan((fovy * Math.PI) / 360.0);
+  projection[0] = f / aspect;
+  projection[5] = f;
+  projection[10] = (far + near) / (near - far);
+  projection[11] = (2 * far * near) / (near - far);
+  projection[14] = -1;
+  gl.uniformMatrix4fv(proGL, false, new Float32Array(projection));
+  gl.uniformMatrix4fv(modGL, false, new Float32Array(modelView));
 }

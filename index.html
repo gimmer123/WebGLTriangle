@@ -15,20 +15,28 @@
         attribute vec3 Color;
         attribute vec2 UV;
         attribute vec3 Normal;
-        uniform mat4 mX;
-        uniform mat4 mY;
+        uniform mat4 rotationX;
+        uniform mat4 rotationY;
         uniform mat4 Projection;
         uniform mat4 ModelView;
+        uniform mat4 Modifier;
         varying vec3 vertexColor;
         varying vec2 uv;
         varying vec3 normal;
         void main()
         {
-            
-            gl_Position = Projection * ModelView * mY * mX * vec4(Pos, 1.0);
+            float coZ = cos(Pos.y + 0.5);
+            float siZ = sin(Pos.y + 0.5);
+            float coX = cos(Pos.x + 0.5);
+            mat4 bend = mat4(vec4(coZ, siZ, 0.0, 0.0),
+                             vec4(-siZ, coX, 0.0, 0.0),
+                             vec4(0.0, 0.0, 1.0, 0.0),
+                             vec4(0.0, 0.0, 0.0, 1.0));
+            vec4 Position = Modifier * vec4(Pos, 1.0);
+            gl_Position = Projection * ModelView * rotationY * rotationX * Position;
             vertexColor = Color;
             uv = UV;
-            normal = mat3(mY * mX) * Normal;
+            normal = mat3(rotationY * rotationX) * Normal;
         }
     </textarea>
     <textarea id="fragmentShader" spellcheck="false">
@@ -55,6 +63,10 @@
       <option>Box</option>
       <option>Cylinder</option></select
     ><br />
+    <select id="modifier" onchange="InitShaders()">
+      <option selected>None</option>
+      <option>Bend</option>
+    </select>
     <input type="number" id="fov" value="90" onchange="Render()" />
     FOV<br /><input type="number" id="zoom" value="1.2" onchange="Render()" />
     Zoom<br />
@@ -67,5 +79,12 @@
     />Light Color<br />
     <div id="ui">Generate UI for geometry here!</div>
     <script src="js/webgl.js" defer></script>
+    <script src="js/Initialize.js" defer></script>
+    <script src="js/texture.js" defer></script>
+    <script src="js/Shapes/box.js" defer></script>
+    <script src="js/Shapes/cylinder.js" defer></script>
+    <script src="js/Shapes/quad.js" defer></script>
+    <script src="js/Shapes/triangle.js" defer></script>
+    <script src="js/ui.js" defer></script>
   </body>
 </html>
